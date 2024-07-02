@@ -5,7 +5,6 @@ import lime.utils.Assets;
 import openfl.display.BitmapData;
 import openfl.utils.AssetType;
 import openfl.utils.Assets as OpenFlAssets;
-import flixel.addons.transition.FlxTransitionableState;
 import flixel.graphics.FlxGraphic;
 import flixel.FlxState;
 
@@ -24,6 +23,7 @@ class LoadingState extends MusicBeatState
 	public static var loaded:Int = 0;
 	public static var loadMax:Int = 0;
 
+	static var originalBitmapKeys:Map<String, String> = [];
 	static var requestedBitmaps:Map<String, BitmapData> = [];
 	static var mutex:Mutex = new Mutex();
 
@@ -241,13 +241,15 @@ class LoadingState extends MusicBeatState
 		finishedLoading = true;
 	}
 
-	public static function checkLoaded():Bool {
+	public static function checkLoaded():Bool
+	{
 		for (key => bitmap in requestedBitmaps)
 		{
-			if (bitmap != null && Paths.cacheBitmap(key, bitmap) != null) trace('finished preloading image $key');
+			if (bitmap != null && Paths.cacheBitmap(originalBitmapKeys.get(key), bitmap) != null) trace('finished preloading image $key');
 			else trace('failed to cache image $key');
 		}
 		requestedBitmaps.clear();
+		originalBitmapKeys.clear();
 		return (loaded == loadMax && initialThreadCompleted);
 	}
 
@@ -348,8 +350,28 @@ class LoadingState extends MusicBeatState
 				json = Json.parse(Assets.getText(path));
 				#end
 
-				if (json != null)
-					prepare((!ClientPrefs.data.lowQuality || json.images_low) ? json.images : json.images_low, json.sounds, json.music);
+				if(json != null)
+				{
+					var imgs:Array<String> = [];
+					var snds:Array<String> = [];
+					var mscs:Array<String> = [];
+					for (asset in Reflect.fields(json))
+					{
+						var filters:Int = Reflect.field(json, asset);
+						var asset:String = asset.trim();
+
+						if(filters < 0 || StageData.validateVisibility(filters))
+						{
+							if(asset.startsWith('images/'))
+								imgs.push(asset.substr('images/'.length));
+							else if(asset.startsWith('sounds/'))
+								snds.push(asset.substr('sounds/'.length));
+							else if(asset.startsWith('music/'))
+								mscs.push(asset.substr('music/'.length));
+						}
+					}
+					prepare(imgs, snds, mscs);
+				}
 			}
 			catch(e:Dynamic) {}
 			completedThread();
@@ -361,7 +383,27 @@ class LoadingState extends MusicBeatState
 
 			var stageData:StageFile = StageData.getStageFile(song.stage);
 			if (stageData != null && stageData.preload != null)
-				prepare((!ClientPrefs.data.lowQuality || stageData.preload.images_low) ? stageData.preload.images : stageData.preload.images_low, stageData.preload.sounds, stageData.preload.music);
+			{
+				var imgs:Array<String> = [];
+				var snds:Array<String> = [];
+				var mscs:Array<String> = [];
+				for (asset in Reflect.fields(stageData.preload))
+				{
+					var filters:Int = Reflect.field(stageData.preload, asset);
+					var asset:String = asset.trim();
+
+					if(filters < 0 || StageData.validateVisibility(filters))
+					{
+						if(asset.startsWith('images/'))
+							imgs.push(asset.substr('images/'.length));
+						else if(asset.startsWith('sounds/'))
+							snds.push(asset.substr('sounds/'.length));
+						else if(asset.startsWith('music/'))
+							mscs.push(asset.substr('music/'.length));
+					}
+				}
+				prepare(imgs, snds, mscs);
+			}
 
 			songsToPrepare.push('$folder/Inst');
 
@@ -466,8 +508,12 @@ class LoadingState extends MusicBeatState
 			Thread.create(() -> {
 				mutex.acquire();
 				try {
+					var requestKey:String = 'images/$image';
+					#if TRANSLATIONS_ALLOWED requestKey = Language.getFileTranslation(requestKey); #end
+					if(requestKey.lastIndexOf('.') < 0) requestKey += '.png';
+
 					var bitmap:BitmapData;
-					var file:String = Paths.getPath('images/$image.png', IMAGE);
+					var file:String = Paths.getPath(requestKey, IMAGE);
 					if (Paths.currentTrackedAssets.exists(file)) {
 						mutex.release();
 						loaded++;
@@ -483,7 +529,11 @@ class LoadingState extends MusicBeatState
 					else bitmap = OpenFlAssets.getBitmapData(file);
 					mutex.release();
 
-					if (bitmap != null) requestedBitmaps.set(file, bitmap);
+					if (bitmap != null)
+					{
+						requestedBitmaps.set(file, bitmap);
+						originalBitmapKeys.set(file, requestKey);
+					}
 					else trace('oh no the image is null NOOOO ($image)');
 				}
 				catch(e:Dynamic) {
