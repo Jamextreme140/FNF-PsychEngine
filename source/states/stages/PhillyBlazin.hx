@@ -82,10 +82,12 @@ class PhillyBlazin extends BaseStage
 			setupRainShader();
 
 		var _song = PlayState.SONG;
-		if(_song.gameOverSound == null || _song.gameOverSound.trim().length < 1) GameOverSubstate.deathSoundName = 'gameplay/gameover/fnf_loss_sfx-pico-gutpunch';
-		if(_song.gameOverLoop == null || _song.gameOverLoop.trim().length < 1) GameOverSubstate.loopSoundName = 'gameplay/gameover/gameOverStart-pico-explode';
-		//if(_song.gameOverEnd == null || _song.gameOverEnd.trim().length < 1) GameOverSubstate.endSoundName = 'gameplay/gameover/gameOverEnd';
+		if(_song.gameOverSound == null || _song.gameOverSound.trim().length < 1) GameOverSubstate.deathSoundName = 'fnf_loss_sfx-pico-gutpunch';
+		if(_song.gameOverLoop == null || _song.gameOverLoop.trim().length < 1) GameOverSubstate.loopSoundName = 'gameOver-pico';
+		if(_song.gameOverEnd == null || _song.gameOverEnd.trim().length < 1) GameOverSubstate.endSoundName = 'gameOverEnd-pico';
 		if(_song.gameOverChar == null || _song.gameOverChar.trim().length < 1) GameOverSubstate.characterName = 'pico-blazin';
+		GameOverSubstate.deathDelay = 0.15;
+
 		setDefaultGF('nene');
 		precache();
 		
@@ -165,8 +167,7 @@ class PhillyBlazin extends BaseStage
 	{
 		for (i in 1...4)
 		{
-			//trace('Lightning$i');
-			Paths.sound('Lightning$i');
+			Paths.sound('lightning/Lightning$i');
 		}
 	}
 
@@ -229,7 +230,7 @@ class PhillyBlazin extends BaseStage
 		FlxTween.color(abot, LIGHTNING_FADE_DURATION, 0xFF606060, 0xFF888888);
 
 		// Sound
-		FlxG.sound.play(Paths.soundRandom('Lightning', 1, 3));
+		FlxG.sound.play(Paths.soundRandom('lightning/Lightning', 1, 3));
 	}
 
 	// Note functions

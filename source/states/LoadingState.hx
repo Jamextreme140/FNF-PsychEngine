@@ -332,7 +332,7 @@ class LoadingState extends MusicBeatState
 			//
 
 			// LOAD NOTE SPLASH IMAGE
-			var noteSplash:String = NoteSplash.defaultNoteSplash;
+			var noteSplash:String = NoteSplash.DEFAULT_SKIN;
 			if(PlayState.SONG.splashSkin != null && PlayState.SONG.splashSkin.length > 0) noteSplash = PlayState.SONG.splashSkin;
 			else noteSplash += NoteSplash.getSplashSkinPostfix();
 			imagesToPrepare.push(noteSplash);
@@ -382,24 +382,37 @@ class LoadingState extends MusicBeatState
 				song.stage = StageData.vanillaSongStage(folder);
 
 			var stageData:StageFile = StageData.getStageFile(song.stage);
-			if (stageData != null && stageData.preload != null)
+			if (stageData != null)
 			{
 				var imgs:Array<String> = [];
 				var snds:Array<String> = [];
 				var mscs:Array<String> = [];
-				for (asset in Reflect.fields(stageData.preload))
+				if(stageData.preload != null)
 				{
-					var filters:Int = Reflect.field(stageData.preload, asset);
-					var asset:String = asset.trim();
-
-					if(filters < 0 || StageData.validateVisibility(filters))
+					for (asset in Reflect.fields(stageData.preload))
 					{
-						if(asset.startsWith('images/'))
-							imgs.push(asset.substr('images/'.length));
-						else if(asset.startsWith('sounds/'))
-							snds.push(asset.substr('sounds/'.length));
-						else if(asset.startsWith('music/'))
-							mscs.push(asset.substr('music/'.length));
+						var filters:Int = Reflect.field(stageData.preload, asset);
+						var asset:String = asset.trim();
+
+						if(filters < 0 || StageData.validateVisibility(filters))
+						{
+							if(asset.startsWith('images/'))
+								imgs.push(asset.substr('images/'.length));
+							else if(asset.startsWith('sounds/'))
+								snds.push(asset.substr('sounds/'.length));
+							else if(asset.startsWith('music/'))
+								mscs.push(asset.substr('music/'.length));
+						}
+					}
+				}
+				
+				if (stageData.objects != null)
+				{
+					for (sprite in stageData.objects)
+					{
+						if(sprite.type == 'sprite' || sprite.type == 'animatedSprite')
+							if((sprite.filters < 0 || StageData.validateVisibility(sprite.filters)) && !imgs.contains(sprite.image))
+								imgs.push(sprite.image);
 					}
 				}
 				prepare(imgs, snds, mscs);
@@ -460,15 +473,22 @@ class LoadingState extends MusicBeatState
 
 	static function clearInvalidFrom(arr:Array<String>, prefix:String, ext:String, type:AssetType, ?parentFolder:String = null)
 	{
-		for (i in 0...arr.length)
+		for (folder in arr.copy())
 		{
-			var folder:String = arr[i];
-			if(folder.trim().endsWith('/'))
+			var nam:String = folder.trim();
+			if(nam.endsWith('/'))
 			{
-				for (subfolder in Mods.directoriesWithFile(Paths.getSharedPath(), '$prefix/$folder'))
+				for (subfolder in Mods.directoriesWithFile(Paths.getSharedPath(), '$prefix/$nam'))
+				{
 					for (file in FileSystem.readDirectory(subfolder))
+					{
 						if(file.endsWith(ext))
-							arr.push(folder + file.substr(0, file.length - ext.length));
+						{
+							var toAdd:String = nam + haxe.io.Path.withoutExtension(file);
+							if(!arr.contains(toAdd)) arr.push(toAdd);
+						}
+					}
+				}
 
 				//trace('Folder detected! ' + folder);
 			}
